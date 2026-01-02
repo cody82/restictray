@@ -2,6 +2,7 @@ import sys
 import asyncio
 import json
 import logging
+import locale
 from pathlib import Path
 from PySide6.QtWidgets import (
     QApplication, QSystemTrayIcon, QMenu, QMainWindow, QTextEdit, 
@@ -11,7 +12,7 @@ from PySide6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QSplitter
 )
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, QTranslator, QLocale, QCoreApplication
 from qasync import QEventLoop
 from restictray.restic import BackupExecutor
 from restictray.storage import Storage, Repository, Job, History
@@ -36,7 +37,7 @@ class JobDialog(QDialog):
         super().__init__(parent)
         self.storage = storage
         self.job = job
-        self.setWindowTitle("Edit Job" if job else "Add Job")
+        self.setWindowTitle(self.tr("Edit Job") if job else self.tr("Add Job"))
         self.resize(500, 250)
         
         layout = QFormLayout(self)
@@ -48,7 +49,7 @@ class JobDialog(QDialog):
         self.type_combo.addItems(["backup", "forget", "prune", "check"])
         self.schedule_input = QLineEdit()
         self.directory_input = QLineEdit()
-        self.directory_browse_btn = QPushButton("Browse...")
+        self.directory_browse_btn = QPushButton(self.tr("Browse..."))
         self.directory_browse_btn.clicked.connect(self.browse_directory)
         self.additional_args_input = QLineEdit()
         self.enabled_checkbox = QCheckBox()
@@ -88,13 +89,13 @@ class JobDialog(QDialog):
             self.additional_args_input.setPlaceholderText("e.g., --exclude-file /path/to/exclude.txt")
         
         # Add fields to form
-        layout.addRow("Name:", self.name_input)
-        layout.addRow("Repository:", self.repository_combo)
-        layout.addRow("Type:", self.type_combo)
-        layout.addRow("Schedule:", self.schedule_input)
+        layout.addRow(self.tr("Name:"), self.name_input)
+        layout.addRow(self.tr("Repository:"), self.repository_combo)
+        layout.addRow(self.tr("Type:"), self.type_combo)
+        layout.addRow(self.tr("Schedule:"), self.schedule_input)
         
         # Add help text for schedule
-        help_label = QLabel("Cron format: '0 2 * * *' (2 AM daily)\nInterval: 'interval:1h', 'interval:30m', 'interval:1d'")
+        help_label = QLabel(self.tr("Cron format: '0 2 * * *' (2 AM daily)\nInterval: 'interval:1h', 'interval:30m', 'interval:1d'"))
         help_label.setStyleSheet("color: gray; font-size: 10px;")
         layout.addRow("", help_label)
         
@@ -102,10 +103,10 @@ class JobDialog(QDialog):
         directory_layout = QHBoxLayout()
         directory_layout.addWidget(self.directory_input)
         directory_layout.addWidget(self.directory_browse_btn)
-        layout.addRow("Directory:", directory_layout)
+        layout.addRow(self.tr("Directory to Backup:"), directory_layout)
         
-        layout.addRow("Additional Args:", self.additional_args_input)
-        layout.addRow("Enabled:", self.enabled_checkbox)
+        layout.addRow(self.tr("Additional Arguments:"), self.additional_args_input)
+        layout.addRow(self.tr("Enabled"), self.enabled_checkbox)
         
         # Add buttons
         buttons = QDialogButtonBox(
@@ -119,7 +120,7 @@ class JobDialog(QDialog):
         """Open file dialog to select a directory"""
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Select Directory",
+            self.tr("Select Directory to Backup"),
             self.directory_input.text() or str(Path.home()),
             QFileDialog.ShowDirsOnly
         )
@@ -143,7 +144,7 @@ class RepositoryDialog(QDialog):
     def __init__(self, repository: Repository = None, parent=None):
         super().__init__(parent)
         self.repository = repository
-        self.setWindowTitle("Edit Repository" if repository else "Add Repository")
+        self.setWindowTitle(self.tr("Edit Repository") if repository else self.tr("Add Repository"))
         self.resize(500, 200)
         
         layout = QFormLayout(self)
@@ -162,9 +163,9 @@ class RepositoryDialog(QDialog):
             self.password_input.setText(repository.password)
         
         # Add fields to form
-        layout.addRow("Name:", self.name_input)
-        layout.addRow("URL:", self.url_input)
-        layout.addRow("Password:", self.password_input)
+        layout.addRow(self.tr("Name:"), self.name_input)
+        layout.addRow(self.tr("URL/Path:"), self.url_input)
+        layout.addRow(self.tr("Password:"), self.password_input)
         
         # Add buttons
         buttons = QDialogButtonBox(
@@ -185,7 +186,7 @@ class RepositoryDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("ResticTray")
+        self.setWindowTitle(self.tr("ResticTray"))
         self.resize(800, 600)
         
         # Initialize storage
@@ -203,13 +204,13 @@ class MainWindow(QMainWindow):
         dashboard_layout = QVBoxLayout(dashboard_widget)
         
         # History section
-        history_label = QLabel("Recent Backup History:")
+        history_label = QLabel(self.tr("Recent Backup History:"))
         dashboard_layout.addWidget(history_label)
         
         self.history_table = QTableWidget()
         self.history_table.setColumnCount(10)
         self.history_table.setHorizontalHeaderLabels([
-            "Timestamp", "Job", "Repository", "Status", "Files", "Size", "Duration", "Snapshot ID", "Summary", "Exit Code"
+            self.tr("Timestamp"), self.tr("Job"), self.tr("Repository"), self.tr("Status"), self.tr("Files"), self.tr("Size"), self.tr("Duration"), self.tr("Snapshot ID"), self.tr("Summary"), self.tr("Exit Code")
         ])
         self.history_table.horizontalHeader().setStretchLastSection(True)
         self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -217,19 +218,19 @@ class MainWindow(QMainWindow):
         dashboard_layout.addWidget(self.history_table)
         
         # Refresh button for history
-        refresh_history_btn = QPushButton("Refresh History")
+        refresh_history_btn = QPushButton(self.tr("Refresh History"))
         refresh_history_btn.clicked.connect(self.refresh_history)
         dashboard_layout.addWidget(refresh_history_btn)
         
         # Log section
-        log_label = QLabel("Activity Log:")
+        log_label = QLabel(self.tr("Activity Log:"))
         dashboard_layout.addWidget(log_label)
         
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         dashboard_layout.addWidget(self.log_text)
         
-        self.tabs.addTab(dashboard_widget, "Dashboard")
+        self.tabs.addTab(dashboard_widget, self.tr("Dashboard"))
         
         # Create Repositories tab
         repositories_widget = QWidget()
@@ -238,20 +239,20 @@ class MainWindow(QMainWindow):
         # Repository list
         self.repository_list = QListWidget()
         self.repository_list.itemSelectionChanged.connect(self.on_repository_selected)
-        repositories_layout.addWidget(QLabel("Configured Repositories:"))
+        repositories_layout.addWidget(QLabel(self.tr("Configured Repositories:")))
         repositories_layout.addWidget(self.repository_list)
         
         # Buttons
         button_layout = QHBoxLayout()
-        self.add_repo_btn = QPushButton("Add Repository")
+        self.add_repo_btn = QPushButton(self.tr("Add Repository"))
         self.add_repo_btn.clicked.connect(self.add_repository)
-        self.edit_repo_btn = QPushButton("Edit Repository")
+        self.edit_repo_btn = QPushButton(self.tr("Edit Repository"))
         self.edit_repo_btn.clicked.connect(self.edit_repository)
         self.edit_repo_btn.setEnabled(False)
-        self.delete_repo_btn = QPushButton("Delete Repository")
+        self.delete_repo_btn = QPushButton(self.tr("Delete Repository"))
         self.delete_repo_btn.clicked.connect(self.delete_repository)
         self.delete_repo_btn.setEnabled(False)
-        self.unlock_repo_btn = QPushButton("Unlock Repository")
+        self.unlock_repo_btn = QPushButton(self.tr("Unlock Repository"))
         self.unlock_repo_btn.clicked.connect(self.unlock_repository)
         self.unlock_repo_btn.setEnabled(False)
         
@@ -262,7 +263,7 @@ class MainWindow(QMainWindow):
         button_layout.addStretch()
         
         repositories_layout.addLayout(button_layout)
-        self.tabs.addTab(repositories_widget, "Repositories")
+        self.tabs.addTab(repositories_widget, self.tr("Repositories"))
         
         # Create Jobs tab
         jobs_widget = QWidget()
@@ -271,20 +272,20 @@ class MainWindow(QMainWindow):
         # Job list
         self.job_list = QListWidget()
         self.job_list.itemSelectionChanged.connect(self.on_job_selected)
-        jobs_layout.addWidget(QLabel("Scheduled Jobs:"))
+        jobs_layout.addWidget(QLabel(self.tr("Scheduled Jobs:")))
         jobs_layout.addWidget(self.job_list)
         
         # Buttons
         job_button_layout = QHBoxLayout()
-        self.add_job_btn = QPushButton("Add Job")
+        self.add_job_btn = QPushButton(self.tr("Add Job"))
         self.add_job_btn.clicked.connect(self.add_job)
-        self.edit_job_btn = QPushButton("Edit Job")
+        self.edit_job_btn = QPushButton(self.tr("Edit Job"))
         self.edit_job_btn.clicked.connect(self.edit_job)
         self.edit_job_btn.setEnabled(False)
-        self.delete_job_btn = QPushButton("Delete Job")
+        self.delete_job_btn = QPushButton(self.tr("Delete Job"))
         self.delete_job_btn.clicked.connect(self.delete_job)
         self.delete_job_btn.setEnabled(False)
-        self.run_job_btn = QPushButton("Run Now")
+        self.run_job_btn = QPushButton(self.tr("Run Now"))
         self.run_job_btn.clicked.connect(self.run_job_now)
         self.run_job_btn.setEnabled(False)
         
@@ -295,7 +296,7 @@ class MainWindow(QMainWindow):
         job_button_layout.addStretch()
         
         jobs_layout.addLayout(job_button_layout)
-        self.tabs.addTab(jobs_widget, "Jobs")
+        self.tabs.addTab(jobs_widget, self.tr("Jobs"))
         
         # Create Browse tab
         browse_widget = QWidget()
@@ -303,12 +304,12 @@ class MainWindow(QMainWindow):
         
         # Repository selection for browsing
         repo_select_layout = QHBoxLayout()
-        repo_select_layout.addWidget(QLabel("Repository:"))
+        repo_select_layout.addWidget(QLabel(self.tr("Repository:")))
         self.browse_repo_combo = QComboBox()
         self.browse_repo_combo.currentTextChanged.connect(self.on_browse_repo_changed)
         repo_select_layout.addWidget(self.browse_repo_combo)
         
-        self.browse_load_snapshots_btn = QPushButton("Load Snapshots")
+        self.browse_load_snapshots_btn = QPushButton(self.tr("Load Snapshots"))
         self.browse_load_snapshots_btn.clicked.connect(self.load_snapshots)
         repo_select_layout.addWidget(self.browse_load_snapshots_btn)
         repo_select_layout.addStretch()
@@ -323,11 +324,11 @@ class MainWindow(QMainWindow):
         snapshots_layout = QVBoxLayout(snapshots_widget)
         snapshots_layout.setContentsMargins(0, 0, 0, 0)
         
-        snapshots_layout.addWidget(QLabel("Snapshots:"))
+        snapshots_layout.addWidget(QLabel(self.tr("Snapshots:")))
         self.snapshots_table = QTableWidget()
         self.snapshots_table.setColumnCount(5)
         self.snapshots_table.setHorizontalHeaderLabels([
-            "ID", "Time", "Host", "Paths", "Tags"
+            self.tr("ID"), self.tr("Time"), self.tr("Host"), self.tr("Paths"), self.tr("Tags")
         ])
         self.snapshots_table.horizontalHeader().setStretchLastSection(True)
         self.snapshots_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -342,9 +343,9 @@ class MainWindow(QMainWindow):
         files_layout = QVBoxLayout(files_widget)
         files_layout.setContentsMargins(0, 0, 0, 0)
         
-        files_layout.addWidget(QLabel("Files in Snapshot:"))
+        files_layout.addWidget(QLabel(self.tr("Files in Snapshot:")))
         self.files_tree = QTreeWidget()
-        self.files_tree.setHeaderLabels(["Path", "Type", "Size"])
+        self.files_tree.setHeaderLabels([self.tr("Name"), self.tr("Type"), self.tr("Size")])
         self.files_tree.setColumnWidth(0, 400)
         self.files_tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.files_tree.customContextMenuRequested.connect(self.show_file_context_menu)
@@ -357,7 +358,7 @@ class MainWindow(QMainWindow):
         
         browse_layout.addWidget(browse_splitter)
         
-        self.tabs.addTab(browse_widget, "Browse")
+        self.tabs.addTab(browse_widget, self.tr("Browse"))
         
         # Load repositories, jobs, and history
         self.refresh_repositories()
@@ -400,15 +401,15 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.Accepted:
             repo = dialog.get_repository()
             if not repo.name or not repo.url:
-                QMessageBox.warning(self, "Invalid Input", "Name and URL are required.")
+                QMessageBox.warning(self, self.tr("Invalid Input"), self.tr("Name and URL are required."))
                 return
             
             if self.storage.add_repository(repo):
                 self.refresh_repositories()
                 self.refresh_browse_repos()
-                self.log(f"Added repository: {repo.name}")
+                self.log(self.tr("Added repository: %1").replace("%1", repo.name))
             else:
-                QMessageBox.warning(self, "Error", f"Repository '{repo.name}' already exists.")
+                QMessageBox.warning(self, self.tr("Error"), self.tr("Repository '%1' already exists.").replace("%1", repo.name))
     
     def edit_repository(self):
         """Open dialog to edit selected repository"""
@@ -430,7 +431,7 @@ class MainWindow(QMainWindow):
             if self.storage.update_repository(repo_name, updated_repo):
                 self.refresh_repositories()
                 self.refresh_browse_repos()
-                self.log(f"Updated repository: {repo_name}")
+                self.log(self.tr("Updated repository: %1").replace("%1", repo_name))
     
     def delete_repository(self):
         """Delete selected repository"""
@@ -444,8 +445,8 @@ class MainWindow(QMainWindow):
         
         reply = QMessageBox.question(
             self, 
-            "Confirm Delete",
-            f"Are you sure you want to delete repository '{repo_name}'?",
+            self.tr("Confirm Delete"),
+            self.tr("Are you sure you want to delete repository '%1'?").replace("%1", repo_name),
             QMessageBox.Yes | QMessageBox.No
         )
         
@@ -453,7 +454,7 @@ class MainWindow(QMainWindow):
             if self.storage.delete_repository(repo_name):
                 self.refresh_repositories()
                 self.refresh_browse_repos()
-                self.log(f"Deleted repository: {repo_name}")
+                self.log(self.tr("Deleted repository: %1").replace("%1", repo_name))
     
     def unlock_repository(self):
         """Unlock selected repository"""
@@ -471,13 +472,13 @@ class MainWindow(QMainWindow):
         
         reply = QMessageBox.question(
             self, 
-            "Confirm Unlock",
-            f"Are you sure you want to unlock repository '{repo_name}'?\n\nThis will remove stale locks.",
+            self.tr("Confirm Unlock"),
+            self.tr("Are you sure you want to unlock repository '%1'?\n\nThis will remove stale locks.").replace("%1", repo_name),
             QMessageBox.Yes | QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
-            self.log(f"Unlocking repository: {repo_name}...")
+            self.log(self.tr("Unlocking repository: %1...").replace("%1", repo_name))
             asyncio.create_task(self._unlock_repository_async(repo))
     
     async def _unlock_repository_async(self, repository: Repository):
@@ -495,26 +496,26 @@ class MainWindow(QMainWindow):
             stdout, stderr = await process.communicate()
             
             if process.returncode == 0:
-                self.log(f"Repository '{repository.name}' unlocked successfully")
+                self.log(self.tr("Repository '%1' unlocked successfully").replace("%1", repository.name))
                 QMessageBox.information(
                     self,
-                    "Success",
-                    f"Repository '{repository.name}' has been unlocked."
+                    self.tr("Success"),
+                    self.tr("Repository '%1' has been unlocked.").replace("%1", repository.name)
                 )
             else:
                 error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(f"Failed to unlock repository '{repository.name}': {error_msg}")
+                self.log(self.tr("Failed to unlock repository '%1': %2").replace("%1", repository.name).replace("%2", error_msg))
                 QMessageBox.warning(
                     self,
-                    "Unlock Failed",
-                    f"Failed to unlock repository '{repository.name}'.\n\n{error_msg}"
+                    self.tr("Unlock Failed"),
+                    self.tr("Failed to unlock repository '%1'.\n\n%2").replace("%1", repository.name).replace("%2", error_msg)
                 )
         except Exception as e:
-            self.log(f"Error unlocking repository '{repository.name}': {e}")
+            self.log(self.tr("Error unlocking repository '%1': %2").replace("%1", repository.name).replace("%2", str(e)))
             QMessageBox.warning(
                 self,
-                "Error",
-                f"An error occurred while unlocking the repository:\n{e}"
+                self.tr("Error"),
+                self.tr("An error occurred while unlocking the repository:\n%1").replace("%1", str(e))
             )
     
     # Job management methods
@@ -565,21 +566,21 @@ class MainWindow(QMainWindow):
         if not repo:
             return
         
-        self.log(f"Loading files for snapshot {snapshot_id}...")
+        self.log(self.tr("Loading files for snapshot %1...").replace("%1", snapshot_id))
         asyncio.create_task(self._load_snapshot_files_async(repo, snapshot_id))
     
     def load_snapshots(self):
         """Load snapshots for the selected repository"""
         repo_name = self.browse_repo_combo.currentText()
         if not repo_name:
-            QMessageBox.warning(self, "No Repository", "Please select a repository first.")
+            QMessageBox.warning(self, self.tr("No Repository"), self.tr("Please select a repository first."))
             return
         
         repo = self.storage.get_repository(repo_name)
         if not repo:
             return
         
-        self.log(f"Loading snapshots for repository: {repo_name}...")
+        self.log(self.tr("Loading snapshots for repository: %1...").replace("%1", repo_name))
         asyncio.create_task(self._load_snapshots_async(repo))
     
     async def _load_snapshots_async(self, repository: Repository):
@@ -600,21 +601,21 @@ class MainWindow(QMainWindow):
             if process.returncode == 0:
                 snapshots = json.loads(stdout.decode())
                 self._display_snapshots(snapshots)
-                self.log(f"Loaded {len(snapshots)} snapshots for repository '{repository.name}'")
+                self.log(self.tr("Loaded %1 snapshots").replace("%1", str(len(snapshots))))
             else:
                 error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(f"Failed to load snapshots: {error_msg}")
+                self.log(self.tr("Failed to load snapshots: %1").replace("%1", error_msg))
                 QMessageBox.warning(
                     self,
-                    "Load Failed",
-                    f"Failed to load snapshots.\\n\\n{error_msg}"
+                    self.tr("Snapshots Load Failed"),
+                    self.tr("Failed to load snapshots.\n\n%1").replace("%1", error_msg)
                 )
         except Exception as e:
-            self.log(f"Error loading snapshots: {e}")
+            self.log(self.tr("Error loading snapshots: %1").replace("%1", str(e)))
             QMessageBox.warning(
                 self,
-                "Error",
-                f"An error occurred while loading snapshots:\\n{e}"
+                self.tr("Error"),
+                self.tr("An error occurred while loading snapshots:\n%1").replace("%1", str(e))
             )
     
     def _display_snapshots(self, snapshots: list):
@@ -674,22 +675,22 @@ class MainWindow(QMainWindow):
                         except json.JSONDecodeError:
                             continue
                 
-                self.log(f"Loaded {len(files)} items for snapshot {snapshot_id}")
+                self.log(self.tr("Loaded files for snapshot %1").replace("%1", snapshot_id))
                 self._display_files(files)
             else:
                 error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(f"Failed to load files: {error_msg}")
+                self.log(self.tr("Failed to load snapshot files: %1").replace("%1", error_msg))
                 QMessageBox.warning(
                     self,
-                    "Load Failed",
-                    f"Failed to load snapshot files.\\n\\n{error_msg}"
+                    self.tr("Snapshot Files Load Failed"),
+                    self.tr("Failed to load snapshot files.\n\n%1").replace("%1", error_msg)
                 )
         except Exception as e:
-            self.log(f"Error loading snapshot files: {e}")
+            self.log(self.tr("Error loading snapshot files: %1").replace("%1", str(e)))
             QMessageBox.warning(
                 self,
-                "Error",
-                f"An error occurred while loading snapshot files:\\n{e}"
+                self.tr("Error"),
+                self.tr("An error occurred while loading snapshot files:\n%1").replace("%1", str(e))
             )
     
     def _display_files(self, files: list):
@@ -711,7 +712,7 @@ class MainWindow(QMainWindow):
             size = file_info.get('size', 0)
             
             # Determine display values
-            file_type = "Directory" if node_type == 'dir' else "File"
+            file_type = self.tr("Directory") if node_type == 'dir' else "File"
             size_str = str(size) if node_type != 'dir' else ""
             
             # Split path into parts
@@ -769,7 +770,7 @@ class MainWindow(QMainWindow):
             return
         
         menu = QMenu()
-        restore_action = QAction("Restore", self)
+        restore_action = QAction(self.tr("Restore"), self)
         restore_action.triggered.connect(lambda: self.restore_file(item))
         menu.addAction(restore_action)
         
@@ -809,7 +810,7 @@ class MainWindow(QMainWindow):
         # Ask user for restore location
         restore_dir = QFileDialog.getExistingDirectory(
             self,
-            "Select Restore Location",
+            self.tr("Select Restore Location"),
             str(Path.home()),
             QFileDialog.ShowDirsOnly
         )
@@ -819,13 +820,13 @@ class MainWindow(QMainWindow):
         
         reply = QMessageBox.question(
             self,
-            "Confirm Restore",
-            f"Restore '{file_path}' from snapshot {snapshot_id} to:\\n{restore_dir}\\n\\nThis will overwrite existing files with the same name.",
+            self.tr("Confirm Restore"),
+            self.tr("Restore '%1' from snapshot %2 to:\n%3\n\nThis will overwrite existing files with the same name.").replace("%1", file_path).replace("%2", snapshot_id).replace("%3", restore_dir),
             QMessageBox.Yes | QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
-            self.log(f"Restoring '{file_path}' from snapshot {snapshot_id} to {restore_dir}...")
+            self.log(self.tr("Restoring '%1' from snapshot %2 to %3...").replace("%1", file_path).replace("%2", snapshot_id).replace("%3", restore_dir))
             asyncio.create_task(self._restore_file_async(repo, snapshot_id, file_path, restore_dir))
     
     async def _restore_file_async(self, repository: Repository, snapshot_id: str, file_path: str, restore_dir: str):
@@ -846,26 +847,26 @@ class MainWindow(QMainWindow):
             stdout, stderr = await process.communicate()
             
             if process.returncode == 0:
-                self.log(f"Successfully restored '{file_path}' to {restore_dir}")
+                self.log(self.tr("Successfully restored '%1' to %2").replace("%1", file_path).replace("%2", restore_dir))
                 QMessageBox.information(
                     self,
-                    "Restore Successful",
-                    f"File(s) restored successfully to:\\n{restore_dir}"
+                    self.tr("Restore Successful"),
+                    self.tr("File(s) restored successfully to:\n%1").replace("%1", restore_dir)
                 )
             else:
                 error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(f"Failed to restore file: {error_msg}")
+                self.log(self.tr("Failed to restore file: %1").replace("%1", error_msg))
                 QMessageBox.warning(
                     self,
-                    "Restore Failed",
-                    f"Failed to restore file(s).\\n\\n{error_msg}"
+                    self.tr("Restore Failed"),
+                    self.tr("Failed to restore file(s).\n\n%1").replace("%1", error_msg)
                 )
         except Exception as e:
-            self.log(f"Error restoring file: {e}")
+            self.log(self.tr("Error restoring file: %1").replace("%1", str(e)))
             QMessageBox.warning(
                 self,
-                "Error",
-                f"An error occurred while restoring:\\n{e}"
+                self.tr("Error"),
+                self.tr("An error occurred while restoring:\n%1").replace("%1", str(e))
             )
     
     def refresh_history(self):
@@ -887,7 +888,7 @@ class MainWindow(QMainWindow):
             self.history_table.setItem(row_position, 2, QTableWidgetItem(entry.repo_name))
             
             # Status
-            status_text = "✓ Success" if entry.success else "✗ Failed"
+            status_text = self.tr("✓ Success") if entry.success else self.tr("✗ Failed")
             self.history_table.setItem(row_position, 3, QTableWidgetItem(status_text))
             
             # Files
@@ -938,15 +939,15 @@ class MainWindow(QMainWindow):
         if dialog.exec() == QDialog.Accepted:
             job = dialog.get_job()
             if not job.name or not job.schedule:
-                QMessageBox.warning(self, "Invalid Input", "Name and schedule are required.")
+                QMessageBox.warning(self, self.tr("Invalid Input"), self.tr("Name and URL are required."))
                 return
             
             if self.storage.add_job(job):
                 self.refresh_jobs()
                 self.scheduler.add_job(job)
-                self.log(f"Added job: {job.name}")
+                self.log(self.tr("Added job: %1").replace("%1", job.name))
             else:
-                QMessageBox.warning(self, "Error", f"Job '{job.name}' already exists.")
+                QMessageBox.warning(self, self.tr("Error"), self.tr("Job '%1' already exists.").replace("%1", job.name))
     
     def edit_job(self):
         """Open dialog to edit selected job"""
@@ -971,7 +972,7 @@ class MainWindow(QMainWindow):
                 # Update scheduler
                 self.scheduler.remove_job(job_name)
                 self.scheduler.add_job(updated_job)
-                self.log(f"Updated job: {job_name}")
+                self.log(self.tr("Updated job: %1").replace("%1", job_name))
     
     def delete_job(self):
         """Delete selected job"""
@@ -985,8 +986,8 @@ class MainWindow(QMainWindow):
         
         reply = QMessageBox.question(
             self, 
-            "Confirm Delete",
-            f"Are you sure you want to delete job '{job_name}'?",
+            self.tr("Confirm Delete"),
+            self.tr("Are you sure you want to delete job '%1'?").replace("%1", job_name),
             QMessageBox.Yes | QMessageBox.No
         )
         
@@ -994,7 +995,7 @@ class MainWindow(QMainWindow):
             if self.storage.delete_job(job_name):
                 self.refresh_jobs()
                 self.scheduler.remove_job(job_name)
-                self.log(f"Deleted job: {job_name}")
+                self.log(self.tr("Deleted job: %1").replace("%1", job_name))
     
     def run_job_now(self):
         """Manually trigger selected job to run immediately"""
@@ -1012,7 +1013,7 @@ class MainWindow(QMainWindow):
         
         # Run the job asynchronously
         asyncio.create_task(self.scheduler.run_backup_job(job))
-        self.log(f"Manually triggered job: {job_name}")
+        self.log(self.tr("Manually triggered job: %1").replace("%1", job_name))
     
     def closeEvent(self, event):
         """Override close event to hide instead of quit"""
@@ -1029,13 +1030,13 @@ class TrayIcon(QSystemTrayIcon):
         # Create menu
         menu = QMenu()
         
-        show_window_action = QAction("Show Window", self)
+        show_window_action = QAction(QCoreApplication.translate("TrayIcon", "Show Window"), self)
         show_window_action.triggered.connect(self.toggle_window)
         menu.addAction(show_window_action)
         
         menu.addSeparator()
         
-        quit_action = QAction("Quit", self)
+        quit_action = QAction(QCoreApplication.translate("TrayIcon", "Quit"), self)
         quit_action.triggered.connect(QApplication.quit)
         menu.addAction(quit_action)
         
@@ -1046,12 +1047,12 @@ class TrayIcon(QSystemTrayIcon):
         self.activated.connect(self.on_tray_icon_activated)
         
         # Set initial tooltip
-        self.setToolTip("ResticTray - Idle")
+        self.setToolTip(QCoreApplication.translate("TrayIcon", "ResticTray - Idle"))
         
         # Show a welcome message
         self.showMessage(
-            "ResticTray",
-            "Application started and running in tray (asyncio enabled)",
+            QCoreApplication.translate("TrayIcon", "ResticTray"),
+            QCoreApplication.translate("TrayIcon", "Application started and running in tray (asyncio enabled)"),
             QSystemTrayIcon.Information,
             2000
         )
@@ -1060,7 +1061,7 @@ class TrayIcon(QSystemTrayIcon):
         asyncio.create_task(self.background_task())
     
     def state_update_callback(self, message: str):
-        self.setToolTip(f"ResticTray - {message}")
+        self.setToolTip(QCoreApplication.translate("TrayIcon", "ResticTray - %1").replace("%1", message))
 
     def toggle_window(self):
         """Show or hide the main window"""
@@ -1073,8 +1074,8 @@ class TrayIcon(QSystemTrayIcon):
     
     def show_message(self):
         self.showMessage(
-            "ResticTray",
-            "This is a system tray notification!",
+            QCoreApplication.translate("TrayIcon", "ResticTray"),
+            QCoreApplication.translate("TrayIcon", "This is a system tray notification!"),
             QSystemTrayIcon.Information,
             2000
         )
@@ -1093,6 +1094,39 @@ class TrayIcon(QSystemTrayIcon):
 
 async def main_async():
     app = QApplication(sys.argv)
+    
+    # Set up translations
+    translator = QTranslator()
+    
+    # Get the locale - check LANG environment variable first, then system locale
+    import os
+    env_lang = os.environ.get('LANG', '')
+    if env_lang:
+        # Extract locale from LANG (e.g., 'de_DE.UTF-8' -> 'de_DE')
+        system_locale = env_lang.split('.')[0]
+    else:
+        # Fallback to Qt's system locale detection
+        system_locale = QLocale.system().name()
+    
+    # Build path to translation file
+    translations_dir = Path(__file__).parent / "translations"
+    translation_file = translations_dir / f"restictray_{system_locale}.qm"
+    
+    # Try to load the specific locale first (e.g., de_DE)
+    if not translation_file.exists():
+        # Try the language without country code (e.g., de)
+        language_code = system_locale.split('_')[0]
+        translation_file = translations_dir / f"restictray_{language_code}.qm"
+    
+    if translation_file.exists():
+        if translator.load(str(translation_file)):
+            app.installTranslator(translator)
+            print(f"Loaded translation: {translation_file.name}")
+        else:
+            print(f"Failed to load translation: {translation_file.name}")
+    else:
+        print(f"No translation found for locale: {system_locale}")
+        print(f"Using default language (English)")
     
     # Set up the asyncio event loop with qasync
     loop = QEventLoop(app)
