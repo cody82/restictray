@@ -1,7 +1,7 @@
 [project]
 name = "restictray"
 version = "0.1.0"
-description = "Add your description here"
+description = "A system tray application for Restic backup management"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -9,3 +9,10 @@ dependencies = [
     "pyside6>=6.10.1",
     "qasync>=0.28.0",
 ]
+
+[project.scripts]
+restictray = "restictray.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -3,8 +3,8 @@ import asyncio
 import json
 from datetime import datetime
 from typing import Callable, Optional
-from storage import Repository, Job, History, Storage
-import globals
+from restictray.storage import Repository, Job, History, Storage
+from restictray import globals
 
 
 class BackupExecutor:

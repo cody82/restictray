@@ -4,9 +4,9 @@ from typing import Callable, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from storage import Storage, Job
-from restic import BackupExecutor
-import globals
+from restictray.storage import Storage, Job
+from restictray.restic import BackupExecutor
+from restictray import globals
 
 class JobScheduler:
     """Manages scheduled backup jobs using APScheduler"""

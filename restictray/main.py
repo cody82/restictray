@@ -13,10 +13,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import QTimer, Qt
 from qasync import QEventLoop
-from restic import BackupExecutor
-from storage import Storage, Repository, Job, History
-from scheduler import JobScheduler
-import globals
+from restictray.restic import BackupExecutor
+from restictray.storage import Storage, Repository, Job, History
+from restictray.scheduler import JobScheduler
+from restictray import globals
 
 # Configure logging
 #logging.basicConfig(
@@ -1091,7 +1091,7 @@ class TrayIcon(QSystemTrayIcon):
             counter += 1
             print(f"Background task tick #{counter}")
 
-async def main():
+async def main_async():
     app = QApplication(sys.argv)
     
     # Set up the asyncio event loop with qasync
@@ -1130,6 +1130,8 @@ async def main():
         finally:
             main_window.stop_scheduler()
 
+def main():
+    asyncio.run(main_async())
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
