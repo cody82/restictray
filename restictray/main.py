@@ -1131,6 +1131,7 @@ async def main_async():
             main_window.stop_scheduler()
 
 def main():
+    print("Starting ResticTray...")
     asyncio.run(main_async())
 
 if __name__ == "__main__":

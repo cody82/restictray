@@ -1,6 +1,6 @@
 # ResticTray
 
-A Qt/PySide6 system tray icon application for Python.
+A Qt/PySide6 system tray application for managing Restic backups with scheduled operations and notifications.
 
 ## Features
 
@@ -27,12 +27,10 @@ uv sync
 
 ```bash
 # Run with uv
-uv run main.py
+uv run restictray
 
-# Or activate the virtual environment and run
-source .venv/bin/activate  # On Linux/macOS
-# .venv\Scripts\activate  # On Windows
-python main.py
+# Run with uvx (default tag)
+uvx --from git+https://github.com/cody82/restictray.git@default restictray
 ```
 
 ## Usage
