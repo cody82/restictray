@@ -20,6 +20,10 @@ class BackupExecutor:
         return len(obj)
     
     async def run(self) -> dict|None:
+        async with globals.get_repo_lock(self.repository.name):
+            return await self._run()
+    
+    async def _run(self) -> dict|None:
         self.running = True
         
         repo_url = self.repository.url

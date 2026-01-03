@@ -1037,7 +1037,7 @@ class TrayIcon(QSystemTrayIcon):
         menu.addSeparator()
         
         quit_action = QAction(QCoreApplication.translate("TrayIcon", "Quit"), self)
-        quit_action.triggered.connect(QApplication.quit)
+        quit_action.triggered.connect(self.quit)
         menu.addAction(quit_action)
         
         # Set the context menu
@@ -1056,9 +1056,18 @@ class TrayIcon(QSystemTrayIcon):
             QSystemTrayIcon.Information,
             2000
         )
-        
-        # Start a background async task
-        asyncio.create_task(self.background_task())
+
+        self._quit_task: asyncio.Task|None = None
+    
+    def quit(self):
+        if self._quit_task is None:
+            self._quit_task = asyncio.create_task(self._quit_async())
+
+    async def _quit_async(self):
+        print("Waiting for running jobs to finish...")
+        for lock in globals.repo_locks.values():
+            await lock.acquire()
+        QApplication.quit()
     
     def state_update_callback(self, message: str):
         self.setToolTip(QCoreApplication.translate("TrayIcon", "ResticTray - %1").replace("%1", message))
@@ -1083,14 +1092,6 @@ class TrayIcon(QSystemTrayIcon):
     def on_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick or reason == QSystemTrayIcon.Trigger:
             self.toggle_window()
-    
-    async def background_task(self):
-        """Example background task that runs continuously"""
-        counter = 0
-        while True:
-            await asyncio.sleep(30)  # Run every 30 seconds
-            counter += 1
-            print(f"Background task tick #{counter}")
 
 async def main_async():
     app = QApplication(sys.argv)
@@ -1165,7 +1166,6 @@ async def main_async():
             main_window.stop_scheduler()
 
 def main():
-    print("Starting ResticTray...")
     asyncio.run(main_async())
 
 if __name__ == "__main__":
