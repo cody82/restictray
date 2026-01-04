@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QComboBox, QCheckBox, QFileDialog, QTableWidget, QTableWidgetItem, QHeaderView,
     QTreeWidget, QTreeWidgetItem, QSplitter
 )
-from PySide6.QtGui import QIcon, QAction
+from PySide6.QtGui import QIcon, QAction, QColor
 from PySide6.QtCore import QTimer, Qt, QTranslator, QLocale, QCoreApplication
 from qasync import QEventLoop
 from restictray.restic import BackupExecutor
@@ -907,21 +907,34 @@ class MainWindow(QMainWindow):
             row_position = self.history_table.rowCount()
             self.history_table.insertRow(row_position)
             
+            # Set row background color based on success/failure
+            bg_color = QColor(200, 255, 200) if entry.success else QColor(255, 200, 200)  # Light green or light red
+            
             # Timestamp
-            self.history_table.setItem(row_position, 0, QTableWidgetItem(entry.timestamp))
+            timestamp_item = QTableWidgetItem(entry.timestamp)
+            timestamp_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 0, timestamp_item)
             
             # Job name
-            self.history_table.setItem(row_position, 1, QTableWidgetItem(entry.job_name))
+            job_item = QTableWidgetItem(entry.job_name)
+            job_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 1, job_item)
             
             # Repository name
-            self.history_table.setItem(row_position, 2, QTableWidgetItem(entry.repo_name))
+            repo_item = QTableWidgetItem(entry.repo_name)
+            repo_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 2, repo_item)
             
             # Status
             status_text = self.tr("✓ Success") if entry.success else self.tr("✗ Failed")
-            self.history_table.setItem(row_position, 3, QTableWidgetItem(status_text))
+            status_item = QTableWidgetItem(status_text)
+            status_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 3, status_item)
             
             # Files
-            self.history_table.setItem(row_position, 4, QTableWidgetItem(str(entry.files)))
+            files_item = QTableWidgetItem(str(entry.files))
+            files_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 4, files_item)
             
             # Size (formatted)
             size_mb = entry.bytes / (1024 * 1024)
@@ -929,7 +942,9 @@ class MainWindow(QMainWindow):
                 size_str = f"{size_mb / 1024:.2f} GB"
             else:
                 size_str = f"{size_mb:.2f} MB"
-            self.history_table.setItem(row_position, 5, QTableWidgetItem(size_str))
+            size_item = QTableWidgetItem(size_str)
+            size_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 5, size_item)
             
             # Duration (formatted)
             minutes = entry.duration // 60
@@ -938,19 +953,27 @@ class MainWindow(QMainWindow):
                 duration_str = f"{minutes}m {seconds}s"
             else:
                 duration_str = f"{seconds}s"
-            self.history_table.setItem(row_position, 6, QTableWidgetItem(duration_str))
+            duration_item = QTableWidgetItem(duration_str)
+            duration_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 6, duration_item)
             
             # Snapshot ID
             snapshot_id = entry.snapshot_id if entry.snapshot_id else "N/A"
-            self.history_table.setItem(row_position, 7, QTableWidgetItem(snapshot_id))
+            snapshot_item = QTableWidgetItem(snapshot_id)
+            snapshot_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 7, snapshot_item)
             
             # Summary text
             summary = entry.summary_text if hasattr(entry, 'summary_text') else ""
-            self.history_table.setItem(row_position, 8, QTableWidgetItem(summary))
+            summary_item = QTableWidgetItem(summary)
+            summary_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 8, summary_item)
             
             # Exit code
             exit_code = str(entry.exit_code) if hasattr(entry, 'exit_code') else "0"
-            self.history_table.setItem(row_position, 9, QTableWidgetItem(exit_code))
+            exit_code_item = QTableWidgetItem(exit_code)
+            exit_code_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 9, exit_code_item)
         
         # Resize columns to content
         self.history_table.resizeColumnsToContents()
