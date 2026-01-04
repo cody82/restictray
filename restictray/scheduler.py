@@ -4,6 +4,7 @@ from typing import Callable, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.combining import OrTrigger
 from restictray.storage import Storage, Job
 from restictray.restic import BackupExecutor
 from restictray import globals
@@ -82,26 +83,38 @@ class JobScheduler:
         Supports:
         - Cron format: "0 2 * * *" (at 2:00 AM every day)
         - Interval format: "interval:1h", "interval:30m", "interval:1d"
+        - Multiple triggers separated by |: "0 2 * * *|interval:6h"
         """
-        if schedule.startswith("interval:"):
-            # Parse interval format
-            interval_str = schedule.split(":", 1)[1]
-            
-            # Parse time units
-            if interval_str.endswith("m"):
-                minutes = int(interval_str[:-1])
-                return IntervalTrigger(minutes=minutes)
-            elif interval_str.endswith("h"):
-                hours = int(interval_str[:-1])
-                return IntervalTrigger(hours=hours)
-            elif interval_str.endswith("d"):
-                days = int(interval_str[:-1])
-                return IntervalTrigger(days=days)
+        # Split by pipe to handle multiple triggers
+        schedule_parts = [s.strip() for s in schedule.split("|")]
+        
+        triggers = []
+        for part in schedule_parts:
+            if part.startswith("interval:"):
+                # Parse interval format
+                interval_str = part.split(":", 1)[1]
+                
+                # Parse time units
+                if interval_str.endswith("m"):
+                    minutes = int(interval_str[:-1])
+                    triggers.append(IntervalTrigger(minutes=minutes))
+                elif interval_str.endswith("h"):
+                    hours = int(interval_str[:-1])
+                    triggers.append(IntervalTrigger(hours=hours))
+                elif interval_str.endswith("d"):
+                    days = int(interval_str[:-1])
+                    triggers.append(IntervalTrigger(days=days))
+                else:
+                    raise ValueError(f"Invalid interval format: {interval_str}")
             else:
-                raise ValueError(f"Invalid interval format: {interval_str}")
+                # Assume cron format
+                triggers.append(CronTrigger.from_crontab(part))
+        
+        # Return single trigger or OrTrigger for multiple
+        if len(triggers) == 1:
+            return triggers[0]
         else:
-            # Assume cron format
-            return CronTrigger.from_crontab(schedule)
+            return OrTrigger(triggers)
     
     def add_job(self, job: Job):
         """Add a job to the scheduler"""
