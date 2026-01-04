@@ -9,6 +9,8 @@ tray_icon: "TrayIcon"
 
 repo_locks: dict[str, asyncio.Lock] = {}
 
+_last_tooltip: str = ""
+
 def get_repo_lock(repo_url: str) -> asyncio.Lock:
     """Get or create an asyncio lock for a given repository URL"""
     if repo_url not in repo_locks:
@@ -17,5 +19,8 @@ def get_repo_lock(repo_url: str) -> asyncio.Lock:
 
 def set_tooltip(message: str):
     """Set the tooltip of the tray icon"""
-    tray_icon.state_update_callback(message)
-    main_window.setWindowTitle(f"ResticTray - {message}")
+    global _last_tooltip
+    if message != _last_tooltip:
+        _last_tooltip = message
+        tray_icon.state_update_callback(message)
+        main_window.setWindowTitle(f"ResticTray - {message}")

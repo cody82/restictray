@@ -73,11 +73,11 @@ class BackupExecutor:
                     bytes_done_mb = bytes_done / (1024 * 1024)
                     total_bytes_mb = total_bytes / (1024 * 1024)
                     
-                    progress = f"Progress: {percent_done:.1%} - {files_done}/{total_files} files, {bytes_done_mb:.1f}/{total_bytes_mb:.1f} MB"
+                    progress = f"Progress: {percent_done:.0%} - {files_done}/{total_files} files, {bytes_done_mb:.0f}/{total_bytes_mb:.0f} MB"
                     #print(progress)
                     globals.set_tooltip(progress)
-                    if self._state_update_callback:
-                        self._state_update_callback(progress)
+                    #if self._state_update_callback:
+                    #    self._state_update_callback(progress)
                     
                 elif message_type == "summary":
                     # Final summary
