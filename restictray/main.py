@@ -211,7 +211,7 @@ class MainWindow(QMainWindow):
         self.resize(800, 600)
         
         # Set window icon
-        icon_path = Path(__file__).parent.parent / "icon.png"
+        icon_path = Path(__file__).parent / "icon.png"
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
         
@@ -1171,7 +1171,7 @@ async def main_async():
     app.setQuitOnLastWindowClosed(False)
     
     # Load custom icon if available
-    icon_path = Path(__file__).parent.parent / "icon.png"
+    icon_path = Path(__file__).parent / "icon.png"
     if icon_path.exists():
         custom_icon = QIcon(str(icon_path))
         app.setWindowIcon(custom_icon)
