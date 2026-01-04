@@ -31,6 +31,27 @@ from restictray import globals
 
 executors: list[BackupExecutor] = []
 
+class LoadingDialog(QDialog):
+    """A modal loading dialog that can be used as an async context manager"""
+    def __init__(self, parent=None, message="Loading..."):
+        super().__init__(parent)
+        self.setWindowTitle(self.tr("Loading"))
+        self.setModal(True)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        layout = QVBoxLayout(self)
+        label = QLabel(self.tr(message))
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+        self.resize(200, 100)
+    
+    async def __aenter__(self):
+        self.show()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
 class JobDialog(QDialog):
     """Dialog for adding or editing a job"""
     def __init__(self, storage: Storage, job: Job = None, parent=None):
@@ -585,38 +606,39 @@ class MainWindow(QMainWindow):
     
     async def _load_snapshots_async(self, repository: Repository):
         """Async task to load snapshots"""
-        try:
-            process = await asyncio.create_subprocess_exec(
-                'restic',
-                '-r', repository.url,
-                '--password-command', f"echo '{repository.password}'",
-                '--json',
-                'snapshots',
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode == 0:
-                snapshots = json.loads(stdout.decode())
-                self._display_snapshots(snapshots)
-                self.log(self.tr("Loaded %1 snapshots").replace("%1", str(len(snapshots))))
-            else:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(self.tr("Failed to load snapshots: %1").replace("%1", error_msg))
+        async with LoadingDialog(self, "Loading..."):
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    'restic',
+                    '-r', repository.url,
+                    '--password-command', f"echo '{repository.password}'",
+                    '--json',
+                    'snapshots',
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                
+                stdout, stderr = await process.communicate()
+                
+                if process.returncode == 0:
+                    snapshots = json.loads(stdout.decode())
+                    self._display_snapshots(snapshots)
+                    self.log(self.tr("Loaded %1 snapshots").replace("%1", str(len(snapshots))))
+                else:
+                    error_msg = stderr.decode() if stderr else "Unknown error"
+                    self.log(self.tr("Failed to load snapshots: %1").replace("%1", error_msg))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Snapshots Load Failed"),
+                        self.tr("Failed to load snapshots.\n\n%1").replace("%1", error_msg)
+                    )
+            except Exception as e:
+                self.log(self.tr("Error loading snapshots: %1").replace("%1", str(e)))
                 QMessageBox.warning(
                     self,
-                    self.tr("Snapshots Load Failed"),
-                    self.tr("Failed to load snapshots.\n\n%1").replace("%1", error_msg)
+                    self.tr("Error"),
+                    self.tr("An error occurred while loading snapshots:\n%1").replace("%1", str(e))
                 )
-        except Exception as e:
-            self.log(self.tr("Error loading snapshots: %1").replace("%1", str(e)))
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("An error occurred while loading snapshots:\n%1").replace("%1", str(e))
-            )
     
     def _display_snapshots(self, snapshots: list):
         """Display snapshots in the table"""
@@ -650,48 +672,49 @@ class MainWindow(QMainWindow):
     
     async def _load_snapshot_files_async(self, repository: Repository, snapshot_id: str):
         """Async task to load files from a snapshot"""
-        try:
-            process = await asyncio.create_subprocess_exec(
-                'restic',
-                '-r', repository.url,
-                '--password-command', f"echo '{repository.password}'",
-                'ls',
-                snapshot_id,
-                '--json',
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode == 0:
-                files_data = stdout.decode()
-                # Parse JSON lines
-                files = []
-                for line in files_data.strip().split('\n'):
-                    if line:
-                        try:
-                            files.append(json.loads(line))
-                        except json.JSONDecodeError:
-                            continue
+        async with LoadingDialog(self, "Loading..."):
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    'restic',
+                    '-r', repository.url,
+                    '--password-command', f"echo '{repository.password}'",
+                    'ls',
+                    snapshot_id,
+                    '--json',
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
                 
-                self.log(self.tr("Loaded files for snapshot %1").replace("%1", snapshot_id))
-                self._display_files(files)
-            else:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(self.tr("Failed to load snapshot files: %1").replace("%1", error_msg))
+                stdout, stderr = await process.communicate()
+                
+                if process.returncode == 0:
+                    files_data = stdout.decode()
+                    # Parse JSON lines
+                    files = []
+                    for line in files_data.strip().split('\n'):
+                        if line:
+                            try:
+                                files.append(json.loads(line))
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    self.log(self.tr("Loaded files for snapshot %1").replace("%1", snapshot_id))
+                    self._display_files(files)
+                else:
+                    error_msg = stderr.decode() if stderr else "Unknown error"
+                    self.log(self.tr("Failed to load snapshot files: %1").replace("%1", error_msg))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Snapshot Files Load Failed"),
+                        self.tr("Failed to load snapshot files.\n\n%1").replace("%1", error_msg)
+                    )
+            except Exception as e:
+                self.log(self.tr("Error loading snapshot files: %1").replace("%1", str(e)))
                 QMessageBox.warning(
                     self,
-                    self.tr("Snapshot Files Load Failed"),
-                    self.tr("Failed to load snapshot files.\n\n%1").replace("%1", error_msg)
+                    self.tr("Error"),
+                    self.tr("An error occurred while loading snapshot files:\n%1").replace("%1", str(e))
                 )
-        except Exception as e:
-            self.log(self.tr("Error loading snapshot files: %1").replace("%1", str(e)))
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("An error occurred while loading snapshot files:\n%1").replace("%1", str(e))
-            )
     
     def _display_files(self, files: list):
         """Display files in the tree widget"""
@@ -831,43 +854,44 @@ class MainWindow(QMainWindow):
     
     async def _restore_file_async(self, repository: Repository, snapshot_id: str, file_path: str, restore_dir: str):
         """Async task to restore a file or folder"""
-        try:
-            process = await asyncio.create_subprocess_exec(
-                'restic',
-                '-r', repository.url,
-                '--password-command', f"echo '{repository.password}'",
-                'restore',
-                snapshot_id,
-                '--target', restore_dir,
-                '--include', file_path,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            
-            stdout, stderr = await process.communicate()
-            
-            if process.returncode == 0:
-                self.log(self.tr("Successfully restored '%1' to %2").replace("%1", file_path).replace("%2", restore_dir))
-                QMessageBox.information(
-                    self,
-                    self.tr("Restore Successful"),
-                    self.tr("File(s) restored successfully to:\n%1").replace("%1", restore_dir)
+        async with LoadingDialog(self, "Restoring..."):
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    'restic',
+                    '-r', repository.url,
+                    '--password-command', f"echo '{repository.password}'",
+                    'restore',
+                    snapshot_id,
+                    '--target', restore_dir,
+                    '--include', file_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
                 )
-            else:
-                error_msg = stderr.decode() if stderr else "Unknown error"
-                self.log(self.tr("Failed to restore file: %1").replace("%1", error_msg))
+                
+                stdout, stderr = await process.communicate()
+                
+                if process.returncode == 0:
+                    self.log(self.tr("Successfully restored '%1' to %2").replace("%1", file_path).replace("%2", restore_dir))
+                    QMessageBox.information(
+                        self,
+                        self.tr("Restore Successful"),
+                        self.tr("File(s) restored successfully to:\n%1").replace("%1", restore_dir)
+                    )
+                else:
+                    error_msg = stderr.decode() if stderr else "Unknown error"
+                    self.log(self.tr("Failed to restore file: %1").replace("%1", error_msg))
+                    QMessageBox.warning(
+                        self,
+                        self.tr("Restore Failed"),
+                        self.tr("Failed to restore file(s).\n\n%1").replace("%1", error_msg)
+                    )
+            except Exception as e:
+                self.log(self.tr("Error restoring file: %1").replace("%1", str(e)))
                 QMessageBox.warning(
                     self,
-                    self.tr("Restore Failed"),
-                    self.tr("Failed to restore file(s).\n\n%1").replace("%1", error_msg)
+                    self.tr("Error"),
+                    self.tr("An error occurred while restoring:\n%1").replace("%1", str(e))
                 )
-        except Exception as e:
-            self.log(self.tr("Error restoring file: %1").replace("%1", str(e)))
-            QMessageBox.warning(
-                self,
-                self.tr("Error"),
-                self.tr("An error occurred while restoring:\n%1").replace("%1", str(e))
-            )
     
     def refresh_history(self):
         """Refresh the history table"""
