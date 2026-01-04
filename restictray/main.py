@@ -210,6 +210,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(self.tr("ResticTray"))
         self.resize(800, 600)
         
+        # Set window icon
+        icon_path = Path(__file__).parent.parent / "icon.png"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+        
         # Initialize storage
         self.storage = Storage()
         
@@ -1165,8 +1170,17 @@ async def main_async():
     # Prevent app from quitting when last window is closed
     app.setQuitOnLastWindowClosed(False)
     
-    # Create icons from built-in styles
-    normal_icon = app.style().standardIcon(app.style().StandardPixmap.SP_DriveHDIcon)
+    # Load custom icon if available
+    icon_path = Path(__file__).parent.parent / "icon.png"
+    if icon_path.exists():
+        custom_icon = QIcon(str(icon_path))
+        app.setWindowIcon(custom_icon)
+    
+    # Create icons from built-in styles or use custom icon
+    if icon_path.exists():
+        normal_icon = QIcon(str(icon_path))
+    else:
+        normal_icon = app.style().standardIcon(app.style().StandardPixmap.SP_DriveHDIcon)
     backup_icon = app.style().standardIcon(app.style().StandardPixmap.SP_ArrowUp)
     
     # Create main window (hidden by default)
