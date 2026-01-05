@@ -156,6 +156,7 @@ class BackupExecutor:
                 bytes=0,
                 duration=duration,
                 snapshot_id="",
+                bytes_added=0,
                 exit_code = exit_code
             )
             if success:
@@ -172,6 +173,7 @@ class BackupExecutor:
                 bytes=summary.get("total_bytes_processed", 0) if summary else 0,
                 duration=duration,
                 snapshot_id=summary.get("snapshot_id", "") if summary else "",
+                bytes_added=data_added,
                 exit_code = exit_code
             )
             if exit_code == 0:

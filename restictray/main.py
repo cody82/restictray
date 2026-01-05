@@ -234,9 +234,9 @@ class MainWindow(QMainWindow):
         dashboard_layout.addWidget(history_label)
         
         self.history_table = QTableWidget()
-        self.history_table.setColumnCount(10)
+        self.history_table.setColumnCount(11)
         self.history_table.setHorizontalHeaderLabels([
-            self.tr("Timestamp"), self.tr("Job"), self.tr("Repository"), self.tr("Status"), self.tr("Files"), self.tr("Size"), self.tr("Duration"), self.tr("Snapshot ID"), self.tr("Summary"), self.tr("Exit Code")
+            self.tr("Timestamp"), self.tr("Job"), self.tr("Repository"), self.tr("Status"), self.tr("Files"), self.tr("Size"), self.tr("Added"), self.tr("Duration"), self.tr("Snapshot ID"), self.tr("Summary"), self.tr("Exit Code")
         ])
         self.history_table.horizontalHeader().setStretchLastSection(True)
         self.history_table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -946,6 +946,19 @@ class MainWindow(QMainWindow):
             size_item.setBackground(bg_color)
             self.history_table.setItem(row_position, 5, size_item)
             
+            # Bytes Added (formatted)
+            if hasattr(entry, 'bytes_added') and entry.bytes_added > 0:
+                added_mb = entry.bytes_added / (1024 * 1024)
+                if added_mb >= 1024:
+                    added_str = f"{added_mb / 1024:.2f} GB"
+                else:
+                    added_str = f"{added_mb:.2f} MB"
+            else:
+                added_str = "N/A"
+            added_item = QTableWidgetItem(added_str)
+            added_item.setBackground(bg_color)
+            self.history_table.setItem(row_position, 6, added_item)
+            
             # Duration (formatted)
             minutes = entry.duration // 60
             seconds = entry.duration % 60
@@ -955,25 +968,25 @@ class MainWindow(QMainWindow):
                 duration_str = f"{seconds}s"
             duration_item = QTableWidgetItem(duration_str)
             duration_item.setBackground(bg_color)
-            self.history_table.setItem(row_position, 6, duration_item)
+            self.history_table.setItem(row_position, 7, duration_item)
             
             # Snapshot ID
             snapshot_id = entry.snapshot_id if entry.snapshot_id else "N/A"
             snapshot_item = QTableWidgetItem(snapshot_id)
             snapshot_item.setBackground(bg_color)
-            self.history_table.setItem(row_position, 7, snapshot_item)
+            self.history_table.setItem(row_position, 8, snapshot_item)
             
             # Summary text
             summary = entry.summary_text if hasattr(entry, 'summary_text') else ""
             summary_item = QTableWidgetItem(summary)
             summary_item.setBackground(bg_color)
-            self.history_table.setItem(row_position, 8, summary_item)
+            self.history_table.setItem(row_position, 9, summary_item)
             
             # Exit code
             exit_code = str(entry.exit_code) if hasattr(entry, 'exit_code') else "0"
             exit_code_item = QTableWidgetItem(exit_code)
             exit_code_item.setBackground(bg_color)
-            self.history_table.setItem(row_position, 9, exit_code_item)
+            self.history_table.setItem(row_position, 10, exit_code_item)
         
         # Resize columns to content
         self.history_table.resizeColumnsToContents()

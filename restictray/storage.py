@@ -35,6 +35,7 @@ class History:
     duration: int # in seconds
     snapshot_id: str
     exit_code: int = 0
+    bytes_added: int = 0
     summary_text: str = ""
 
 class Storage:
